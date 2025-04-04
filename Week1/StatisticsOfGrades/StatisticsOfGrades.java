@@ -56,7 +56,7 @@ public class StatisticsOfGrades {
         Scanner read = new Scanner(System.in);
 
         System.out.print("Enter marks seperated by space :");
-        String values[] = read.nextLine().trim().split("\\s");
+        String values[] = read.nextLine().trim().split("\\s+");
         int N = values.length;
         double sumOfGrades = 0, averageGrade, minGrade;
         double maxGrade;
@@ -66,7 +66,7 @@ public class StatisticsOfGrades {
 
         try {
             for (int i = 0; i < N; i++) {
-                scores[i] = Double.parseDouble(values[i].trim());
+                scores[i] = Double.parseDouble(values[i]);
                 if (scores[i] < 0 || scores[i] > 100) {
                     // Instruction to throw exception if values is greater 100 or less than 0
                     throw new IllegalArgumentException("Grade score greater than 100 or less than 0.");
