@@ -1,5 +1,3 @@
-package MatrixMultiplication;
-
 import java.util.Scanner;
 
 public class MatrixMultiplication {
