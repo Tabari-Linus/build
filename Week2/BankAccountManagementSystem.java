@@ -3,7 +3,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 // Creating an interface for banking activities
-interface Banking {
+interface BankingOperations {
 
     void deposit(double amount);
 
@@ -16,19 +16,18 @@ interface Banking {
     void displayTransactionHistory(int n);
 }
 
-// 
-abstract class BankAccount implements Banking {
+abstract class BankAccount implements BankingOperations {
 
     protected String accountNumber;
-    protected String accountHolder;
-    protected double balance;
+    protected String accountHolderName;
+    protected double accountBalance;
     protected TransactionLinkedList transactionHistory;
     protected String accountType = "Bank Account";
 
-    public BankAccount(String accountNumber, String accountHolder, double initialBalance) {
+    public BankAccount(String accountNumber, String accountHolderName, double initialBalance) {
         this.accountNumber = accountNumber;
-        this.accountHolder = accountHolder;
-        this.balance = initialBalance;
+        this.accountHolderName = accountHolderName;
+        this.accountBalance = initialBalance;
         this.transactionHistory = new TransactionLinkedList();
         addTransaction("Initial Deposit", initialBalance);
     }
@@ -41,12 +40,12 @@ abstract class BankAccount implements Banking {
 
     @Override
     public double getBalance() {
-        return balance;
+        return accountBalance;
     }
 
     @Override
     public void addTransaction(String type, double amount) {
-        String transactionString = String.format(" Account holder: %s with a count number %s made a %s of : %.2f", accountHolder, accountNumber, type, amount);
+        String transactionString = String.format(" Account holder: %s with account number %s made a %s of : %.2f", accountHolderName, accountNumber, type, amount);
         transactionHistory.add(transactionString);
     }
 
@@ -65,21 +64,21 @@ class SavingsAccount extends BankAccount {
     final double MINBALANCE = 50;
     final String accountType = "Savings";
 
-    public SavingsAccount(String accountNumber, String accountHolder, double initialBalance) {
-        super(accountNumber, accountHolder, initialBalance);
+    public SavingsAccount(String accountNumber, String accountHolderName, double initialBalance) {
+        super(accountNumber, accountHolderName, initialBalance);
     }
 
     @Override
     public boolean withdraw(double amount) {
         if (amount <= 0) {
-            System.out.println("AAmount to withdraw must be positive");
+            System.out.println("Amount to withdraw must be positive");
             return false;
         }
-        if (balance - amount < MINBALANCE) {
+        if (accountBalance - amount < MINBALANCE) {
             System.out.println("Withdrawal denied. Insufficient balance.");
             return false;
         }
-        balance -= amount;
+        accountBalance -= amount;
         addTransaction("Withdrawal", amount);
         return true;
     }
@@ -90,13 +89,13 @@ class SavingsAccount extends BankAccount {
             System.out.println("Amount to deposit must be positive");
             return;
         }
-        balance += amount;
+        accountBalance += amount;
         addTransaction("Deposite ", amount);
     }
 
     public void applyInterest(double rate) {
-        double interest = balance * rate / 100;
-        balance += interest;
+        double interest = accountBalance * rate / 100;
+        accountBalance += interest;
         addTransaction("Interest", interest);
     }
 
@@ -112,9 +111,9 @@ class CurrentAccount extends BankAccount {
     private double overdraftLimit;
     final String accountType = "Current";
 
-    public CurrentAccount(String accountNumber, String accountHolder, double initialBalance, double overdraftLimit) {
-        super(accountNumber, accountHolder, initialBalance);
-        this.overdraftLimit = overdraftLimit;
+    public CurrentAccount(String accountNumber, String accountHolderName, double initialBalance) {
+        super(accountNumber, accountHolderName, initialBalance);
+        this.overdraftLimit = 500;
     }
 
     @Override
@@ -123,11 +122,11 @@ class CurrentAccount extends BankAccount {
             System.out.println("Invalid withdrawal amount");
             return false;
         }
-        if (balance - amount < -overdraftLimit) {
-            System.out.println("Withdrawal denied. Overdraft limit exceeded.");
+        if (accountBalance - amount < -overdraftLimit) {
+            System.out.println("Withdrawal denied. Amount to withdraw exceeds Overdraft limit.");
             return false;
         }
-        balance -= amount;
+        accountBalance -= amount;
         addTransaction("Withdrawal", amount);
         return true;
     }
@@ -138,7 +137,7 @@ class CurrentAccount extends BankAccount {
             System.out.println("Amount to deposit must be positive");
             return;
         }
-        balance += amount;
+        accountBalance += amount;
         addTransaction("Deposite ", amount);
     }
 
@@ -157,10 +156,11 @@ class FixedDepositAccount extends BankAccount {
     private LocalDate maturityDate;
     private double interestRate;
     final String accountType = "Fixed Deposit";
+    boolean interestApplied = false;
 
-    public FixedDepositAccount(String accountNumber, String accountHolder,
+    public FixedDepositAccount(String accountNumber, String accountHolderName,
             double initialBalance, LocalDate maturityDate, double interestRate) {
-        super(accountNumber, accountHolder, initialBalance);
+        super(accountNumber, accountHolderName, initialBalance);
         this.maturityDate = maturityDate;
         this.interestRate = interestRate;
     }
@@ -168,26 +168,34 @@ class FixedDepositAccount extends BankAccount {
     @Override
     public boolean withdraw(double amount) {
         if (LocalDate.now().isBefore(maturityDate)) {
-            System.out.println("Withdrawal denied. Account is locked until " + maturityDate);
+            System.out.println("Withdrawal denied. Account not matured for withdrawal. Locked until " + maturityDate);
             return false;
-        }
-        if (amount <= 0) {
-            System.out.println("Invalid withdrawal amount. Amount should not be less than zero.");
+        } else if (amount <= 0) {
+            System.out.println("Amount should not be less than zero.");
             return false;
-        }
-        if (amount > balance) {
+        } else if (amount > accountBalance) {
             System.out.println("Insufficient funds in the account.");
             return false;
         }
-        balance -= amount;
-        addTransaction("Withdrawal", amount);
-        return true;
+
+        // checking if interest has been applied
+        if (interestApplied) {
+            accountBalance -= amount;
+            addTransaction("Withdrawal", amount);
+            return true;
+        } else {
+            applyInterest();
+            accountBalance -= amount;
+            addTransaction("Withdrawal", amount);
+            interestApplied = true;
+            return true;
+        }
     }
 
     public void applyInterest() {
         if (LocalDate.now().isAfter(maturityDate)) {
-            double interest = balance * interestRate / 100;
-            balance += interest;
+            double interest = accountBalance * interestRate / 100;
+            accountBalance += interest;
             addTransaction("Interest", interest);
         }
     }
@@ -198,7 +206,7 @@ class FixedDepositAccount extends BankAccount {
             System.out.println("Amount to deposit must be positive");
             return;
         }
-        balance += amount;
+        accountBalance += amount;
         addTransaction("Deposite ", amount);
     }
 
@@ -235,7 +243,7 @@ class TransactionLinkedList {
     public void printLastN(int n, String accountNumber) {
         Node current = head;
         int count = 0;
-        while (current != null && current.next != null && count < n) {
+        while (current != null && count < n) {
             if (current.transaction.contains(accountNumber)) {
                 System.out.println(current.transaction);
                 count++;
@@ -246,11 +254,11 @@ class TransactionLinkedList {
     }
 }
 
-public class BankingApplication {
+public class BankAccountManagementSystem {
 
     static List<BankAccount> accounts = new ArrayList<>();
 
-    public static void createAccount(String accountHolder, double initialBalance, String accountType) {
+    public static void createAccount(String accountHolderName, double initialBalance, String accountType) {
         String accountNumber = null;
         BankAccount account;
 
@@ -263,15 +271,15 @@ public class BankingApplication {
 
         try {
             if (accountType.equalsIgnoreCase("savings")) {
-                account = new SavingsAccount(accountNumber, accountHolder, initialBalance);
-                System.out.println("Savings account created for : " + accountHolder + " with account number: " + accountNumber);
+                account = new SavingsAccount(accountNumber, accountHolderName, initialBalance);
+                System.out.println("Savings account created for : " + accountHolderName + " with account number: " + accountNumber);
             } else if (accountType.equalsIgnoreCase("current")) {
-                account = new CurrentAccount(accountNumber, accountHolder, initialBalance, 300.0);
-                System.out.println("Current account created for : " + accountHolder + " with account number: " + accountNumber);
+                account = new CurrentAccount(accountNumber, accountHolderName, initialBalance);
+                System.out.println("Current account created for : " + accountHolderName + " with account number: " + accountNumber);
             } else if (accountType.equalsIgnoreCase("fixed")) {
-                account = new FixedDepositAccount(accountNumber, accountHolder, initialBalance,
+                account = new FixedDepositAccount(accountNumber, accountHolderName, initialBalance,
                         LocalDate.now().plusYears(1), 5.0);
-                System.out.println("Fixed deposit account created for : " + accountHolder + " with account number: " + accountNumber);
+                System.out.println("Fixed deposit account created for : " + accountHolderName + " with account number: " + accountNumber);
             } else {
                 System.out.println("Invalid account type specified.");
                 return;
@@ -313,13 +321,26 @@ public class BankingApplication {
         return null;
     }
 
+    // public static void displayAllAccountDetials() {
+    //     if (accounts.isEmpty()) {
+    //         System.out.println("No accounts found.");
+    //         return;
+    //     }
+    //     System.out.println("List of all accounts:");
+    //     for (BankAccount account : accounts) {
+    //         System.out.println("Account number: " + account.accountNumber
+    //                 + "\nAccount holder: " + account.accountHolderName
+    //                 + "\nAccount balance: " + account.getBalance()
+    //                 + "\nAccount type: " + account.getAccountType());
+    //     }
+    // }
     // Method to view account details
     public static void viewAccountDetails(String accountNumber) {
         for (BankAccount account : accounts) {
             if (account.accountNumber.equals(accountNumber)) {
                 System.out.println("\n\nAccount details:");
                 System.out.println("Account number: " + account.accountNumber
-                        + "\nAccount holder: " + account.accountHolder
+                        + "\nAccount holder: " + account.accountHolderName
                         + "\nAccount balance: " + account.getBalance()
                         + "\nAccount type: " + account.getAccountType());
                 return;
@@ -335,17 +356,17 @@ public class BankingApplication {
 
         System.out.println("Welcome to the Banking Application!");
 
-        createAccount("Dennis Owusu", 500, "Savings");
-        createAccount("Thomas Owusu", 1000, "Current");
-        createAccount("Emmanuel", 5000, "fixed");
-        createAccount("Kwame", 2000, "fixed");
-        createAccount("Kwesi", 1000, "savings");
+        // createAccount("Dennis Owusu", 500, "Savings");
+        // createAccount("Thomas Owusu", 1000, "Current");
+        // createAccount("Emmanuel", 5000, "fixed");
+        // createAccount("Kwame", 2000, "fixed");
+        // createAccount("Kwesi", 1000, "savings");
         System.out.println("What will you like to do?");
-        System.out.println("1. Create a new account\n2. View account details\n3. Deposit money\n4. Withdraw money\n5. Transaction History \n6. Interest \n7. Exit");
         int choice = 0;
         String accountNumber;
         while (choice != 7) {
-            System.out.println("Please enter your choice: ");
+            System.out.println("1. Create a new account\n2. View account details\n3. Deposit money\n4. Withdraw money\n5. Transaction History \n6. Interest \n7. Exit");
+            System.out.println("\nPlease enter your choice: ");
             try {
                 choice = scanner.nextInt();
             } catch (InputMismatchException e) {
@@ -449,7 +470,9 @@ public class BankingApplication {
                     break;
 
                 default:
-                    System.out.println("Invalid choice. Please try again.");
+                    System.out.println("Invalid choice. Please enter a number between 1 and 7.");
+                    System.out.println("1. Create a new account\n2. View account details\n3. Deposit money\n4. Withdraw money\n5. Transaction History \n6. Interest \n7. Exit");
+                    System.out.println("\nPlease enter your choice: ");
             }
 
         }
